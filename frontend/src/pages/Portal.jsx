@@ -32,7 +32,6 @@ export default function Portal() {
   const [error, setError] = useState(null);
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
   const [downloadingKey, setDownloadingKey] = useState(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -72,7 +71,6 @@ export default function Portal() {
     setDetail(mod);
     setSelectedVersion(mod.latest_version);
     setSearch("");
-    setFilter("all");
   };
 
   const changeVersion = async (version) => {
@@ -215,8 +213,6 @@ export default function Portal() {
                     loading={filesLoading}
                     search={search}
                     setSearch={setSearch}
-                    filter={filter}
-                    setFilter={setFilter}
                     onDownload={download}
                     downloadingKey={downloadingKey}
                   />

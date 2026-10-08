@@ -32,14 +32,6 @@ const CAT_COLOR = {
   docs: "text-slate-300",
 };
 
-const FILTERS = [
-  { id: "all", label: "All", testId: "filter-pill-all" },
-  { id: "binaries", label: "Binaries", testId: "filter-pill-binaries" },
-  { id: "archives", label: "Archives", testId: "filter-pill-archives" },
-  { id: "configs", label: "Configs", testId: "filter-pill-configs" },
-  { id: "checksums", label: "Checksums", testId: "filter-pill-checksums" },
-];
-
 const fmtDate = (iso) => {
   if (!iso) return "—";
   try {
@@ -60,47 +52,25 @@ export const FileTable = ({
   loading,
   search,
   setSearch,
-  filter,
-  setFilter,
   onDownload,
   downloadingKey,
 }) => {
-  const visible = files.filter((f) => {
-    const matchesSearch = f.name.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === "all" || fileCategory(f.name) === filter;
-    return matchesSearch && matchesFilter;
-  });
+  const visible = files.filter((f) =>
+    f.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-4">
-      {/* Search + filter bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            data-testid="artifact-search-input"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter artifacts…"
-            className="border-border bg-card pl-9 font-mono text-sm text-slate-200 placeholder:text-muted-foreground focus-visible:ring-primary"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              data-testid={f.testId}
-              onClick={() => setFilter(f.id)}
-              className={`rounded-full border px-3 py-1 font-mono text-[11px] uppercase tracking-wider transition-colors duration-150 ${
-                filter === f.id
-                  ? "border-primary/40 bg-primary/15 text-primary"
-                  : "border-border bg-card text-muted-foreground hover:bg-secondary/60 hover:text-slate-200"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+      {/* Search bar */}
+      <div className="relative w-full sm:max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          data-testid="artifact-search-input"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filter artifacts…"
+          className="border-border bg-card pl-9 font-mono text-sm text-slate-200 placeholder:text-muted-foreground focus-visible:ring-primary"
+        />
       </div>
 
       {/* Table */}

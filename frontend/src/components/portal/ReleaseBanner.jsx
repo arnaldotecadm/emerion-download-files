@@ -71,9 +71,19 @@ export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDown
                   <SelectValue placeholder="Select version" />
                 </SelectTrigger>
                 <SelectContent className="border-border bg-popover/95 font-mono text-xs backdrop-blur-xl">
-                  {module.versions.map((v) => (
+                  {module.versions.map((v, i) => (
                     <SelectItem key={v} value={v} data-testid={`version-option-${v}`}>
-                      {v}
+                      <span className="flex items-center gap-2">
+                        {v}
+                        {i === 0 && (
+                          <span
+                            data-testid="version-latest-tag"
+                            className="rounded-full border border-primary/40 bg-primary/15 px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-wider text-primary"
+                          >
+                            Latest
+                          </span>
+                        )}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
