@@ -1,8 +1,7 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query, Depends, Header, File, Form, UploadFile, status
+from fastapi import FastAPI, APIRouter, HTTPException, Query
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import os
-import re
 import logging
 from pathlib import Path
 from pydantic import BaseModel
@@ -10,8 +9,6 @@ from typing import List, Optional
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError, NoCredentialsError
-import jwt
-from jwt import PyJWKClient
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -35,55 +32,6 @@ s3 = boto3.client(
 )
 
 app = FastAPI()
-
-# ---- Cognito JWT auth ----
-COGNITO_ISSUER = os.environ.get('COGNITO_ISSUER', '')
-COGNITO_CLIENT_ID = os.environ.get('COGNITO_CLIENT_ID', '')
-COGNITO_ADMIN_GROUP = os.environ.get('COGNITO_ADMIN_GROUP', 'ADMIN')
-JWKS_URL = f"{COGNITO_ISSUER}/.well-known/jwks.json" if COGNITO_ISSUER else ''
-_jwks_client = PyJWKClient(JWKS_URL, cache_jwk_set=True, lifespan=3600) if JWKS_URL else None
-
-
-def verify_cognito_token(authorization: Optional[str]) -> dict:
-    if not authorization or not authorization.startswith('Bearer '):
-        raise HTTPException(status_code=401, detail='Missing Bearer token')
-    token = authorization[7:].strip()
-    if not token or not _jwks_client:
-        raise HTTPException(status_code=401, detail='Authentication unavailable')
-    try:
-        header = jwt.get_unverified_header(token)
-        if header.get('alg') != 'RS256' or not header.get('kid'):
-            raise ValueError('bad header')
-        signing_key = _jwks_client.get_signing_key_from_jwt(token).key
-        claims = jwt.decode(
-            token, signing_key, algorithms=['RS256'],
-            issuer=COGNITO_ISSUER, options={'verify_aud': False}, leeway=30,
-        )
-        use = claims.get('token_use')
-        if use == 'access':
-            if claims.get('client_id') != COGNITO_CLIENT_ID:
-                raise ValueError('wrong client_id')
-        elif use == 'id':
-            if claims.get('aud') != COGNITO_CLIENT_ID:
-                raise ValueError('wrong aud')
-        else:
-            raise ValueError('bad token_use')
-        return claims
-    except (jwt.PyJWTError, ValueError, KeyError) as e:
-        logger.warning('Cognito token verify failed: %s', e)
-        raise HTTPException(status_code=401, detail='Invalid or expired token',
-                            headers={'WWW-Authenticate': 'Bearer'})
-
-
-def admin_user(authorization: Optional[str] = Header(default=None)) -> dict:
-    claims = verify_cognito_token(authorization)
-    groups = claims.get('cognito:groups', [])
-    if isinstance(groups, str):
-        groups = [groups]
-    if COGNITO_ADMIN_GROUP not in (groups or []):
-        raise HTTPException(status_code=403, detail=f'{COGNITO_ADMIN_GROUP} group required')
-    return claims
-
 
 api_router = APIRouter(prefix="/api")
 
@@ -259,37 +207,6 @@ async def presign_download(key: str = Query(..., min_length=1)):
         logger.error("presign error: %s", e)
         raise HTTPException(status_code=502, detail="Could not generate download link")
     return DownloadResponse(key=key, name=key.rstrip('/').split('/')[-1], url=url, expires_in=PRESIGN_EXPIRY)
-
-
-@api_router.post("/modules/{module}/upload")
-async def upload_files(
-    module: str,
-    version: str = Form(...),
-    files: List[UploadFile] = File(...),
-    claims: dict = Depends(admin_user),
-):
-    if not re.match(r'^[A-Za-z0-9._-]+$', module):
-        raise HTTPException(status_code=400, detail='Invalid module name')
-    if not re.match(r'^[A-Za-z0-9._-]+$', version):
-        raise HTTPException(status_code=400, detail='Invalid version name')
-    uploaded = []
-    for f in files:
-        safe = os.path.basename(f.filename or '').replace('/', '_').replace('\\', '_')
-        if not safe:
-            continue
-        key = f"{BASE_PREFIX}{module}/{version}/{safe}"
-        try:
-            s3.upload_fileobj(
-                f.file, BUCKET, key,
-                ExtraArgs={'ContentType': f.content_type or 'application/octet-stream'},
-            )
-        except (ClientError, NoCredentialsError) as e:
-            logger.error("upload error: %s", e)
-            raise HTTPException(status_code=502, detail=f'Failed to upload {safe}')
-        uploaded.append(key)
-    if not uploaded:
-        raise HTTPException(status_code=400, detail='No valid files provided')
-    return {"uploaded": uploaded, "count": len(uploaded), "module": module, "version": version}
 
 
 app.include_router(api_router)

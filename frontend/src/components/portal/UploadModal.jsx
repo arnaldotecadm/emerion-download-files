@@ -22,7 +22,7 @@ import { uploadFiles, formatBytes } from "@/lib/api";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export const UploadModal = ({ open, onOpenChange, modules, defaultModule, accessToken, onUploaded }) => {
+export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToken, onUploaded }) => {
   const [module, setModule] = useState(defaultModule || "");
   const [version, setVersion] = useState(today());
   const [files, setFiles] = useState([]);
@@ -43,7 +43,7 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, access
     }
     setBusy(true);
     try {
-      const res = await uploadFiles(module, version, files, accessToken);
+      const res = await uploadFiles(module, version, files, idToken);
       toast.success(`Uploaded ${res.count} file(s) to ${module}/${version}`);
       onOpenChange(false);
       onUploaded?.();

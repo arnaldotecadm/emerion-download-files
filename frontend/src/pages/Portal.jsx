@@ -7,6 +7,9 @@ import { Header } from "@/components/portal/Header";
 import { ReleaseBanner } from "@/components/portal/ReleaseBanner";
 import { FileTable } from "@/components/portal/FileTable";
 import { PresignedModal } from "@/components/portal/PresignedModal";
+import { UploadModal } from "@/components/portal/UploadModal";
+import { useAuth } from "react-oidc-context";
+import { cognitoSignOut } from "@/auth";
 import { getStatus, getModules, getModule, getDownloadUrl } from "@/lib/api";
 
 const triggerBrowserDownload = (url) => {
@@ -20,6 +23,18 @@ const triggerBrowserDownload = (url) => {
 };
 
 export default function Portal() {
+  const auth = useAuth();
+  const idToken = auth.isAuthenticated ? auth.user?.id_token : undefined;
+  const email =
+    auth.user?.profile?.email ||
+    auth.user?.profile?.["cognito:username"] ||
+    auth.user?.profile?.sub;
+  const groupsClaim = auth.user?.profile?.["cognito:groups"];
+  const isAdmin = Array.isArray(groupsClaim)
+    ? groupsClaim.includes("ADMIN")
+    : groupsClaim === "ADMIN";
+  const [uploadOpen, setUploadOpen] = useState(false);
+
   const [status, setStatus] = useState(null);
   const [modules, setModules] = useState([]);
   const [selectedName, setSelectedName] = useState(null);
@@ -41,7 +56,7 @@ export default function Portal() {
     isRefresh ? setRefreshing(true) : setLoading(true);
     setError(null);
     try {
-      const [st, mods] = await Promise.all([getStatus(), getModules()]);
+      const [st, mods] = await Promise.all([getStatus(idToken), getModules(idToken)]);
       setStatus(st);
       setModules(mods);
       if (mods.length > 0) {
@@ -59,7 +74,7 @@ export default function Portal() {
       setRefreshing(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedName]);
+  }, [selectedName, idToken]);
 
   useEffect(() => {
     loadAll(false);
@@ -78,7 +93,7 @@ export default function Portal() {
     setSelectedVersion(version);
     setFilesLoading(true);
     try {
-      const d = await getModule(detail.module, version);
+      const d = await getModule(detail.module, version, idToken);
       setDetail(d);
     } catch {
       toast.error("Failed to load version files");
@@ -90,7 +105,7 @@ export default function Portal() {
   const download = async (file) => {
     setDownloadingKey(file.key);
     try {
-      const link = await getDownloadUrl(file.key);
+      const link = await getDownloadUrl(file.key, idToken);
       triggerBrowserDownload(link.url);
       setModalLink(link);
       setModalOpen(true);
@@ -108,7 +123,7 @@ export default function Portal() {
     try {
       for (const file of detail.files) {
         try {
-          const link = await getDownloadUrl(file.key);
+          const link = await getDownloadUrl(file.key, idToken);
           triggerBrowserDownload(link.url);
           await new Promise((r) => setTimeout(r, 700));
         } catch {
@@ -123,7 +138,18 @@ export default function Portal() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header status={status} onRefresh={() => loadAll(true)} refreshing={refreshing} />
+      <Header
+        status={status}
+        onRefresh={() => loadAll(true)}
+        refreshing={refreshing}
+        auth={{
+          isAuthenticated: auth.isAuthenticated,
+          isLoading: auth.isLoading,
+          email,
+          onSignIn: () => auth.signinRedirect(),
+          onSignOut: () => cognitoSignOut(auth),
+        }}
+      />
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
         {error ? (
@@ -207,6 +233,8 @@ export default function Portal() {
                     onVersionChange={changeVersion}
                     onDownloadAll={downloadAll}
                     downloadingAll={downloadingAll}
+                    isAdmin={isAdmin && auth.isAuthenticated}
+                    onUpload={() => setUploadOpen(true)}
                   />
                   <FileTable
                     files={detail?.files || []}
@@ -224,6 +252,14 @@ export default function Portal() {
       </main>
 
       <PresignedModal open={modalOpen} onOpenChange={setModalOpen} link={modalLink} />
+      <UploadModal
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        modules={modules}
+        defaultModule={selectedName}
+        idToken={idToken}
+        onUploaded={() => loadAll(true)}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Calendar, FolderGit2, HardDrive, Files, DownloadCloud } from "lucide-react";
+import { Calendar, FolderGit2, HardDrive, Files, DownloadCloud, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -26,7 +26,7 @@ const Stat = ({ icon: Icon, label, value, testId }) => (
   </div>
 );
 
-export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDownloadAll, downloadingAll }) => {
+export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDownloadAll, downloadingAll, isAdmin, onUpload }) => {
   if (!module) return null;
   const hasFiles = module.file_count > 0;
   return (
@@ -88,6 +88,17 @@ export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDown
                   ))}
                 </SelectContent>
               </Select>
+            )}
+            {isAdmin && (
+              <Button
+                data-testid="upload-artifacts-button"
+                onClick={onUpload}
+                variant="outline"
+                className="gap-2 border-primary/30 bg-primary/10 font-mono text-xs font-semibold text-primary hover:bg-primary/20 active:scale-[0.98]"
+              >
+                <Upload className="h-4 w-4" />
+                UPLOAD
+              </Button>
             )}
             <Button
               data-testid="download-all-release-files-button"

@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
-import { Database, RefreshCw, ShieldCheck, Boxes } from "lucide-react";
+import { Database, RefreshCw, ShieldCheck, Boxes, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-export const Header = ({ status, onRefresh, refreshing }) => {
+export const Header = ({ status, onRefresh, refreshing, auth }) => {
   const connected = status?.connected;
   return (
     <header
@@ -60,6 +60,34 @@ export const Header = ({ status, onRefresh, refreshing }) => {
             <ShieldCheck className="h-3 w-3 text-amber-400" />
             15 MIN LINKS
           </Badge>
+
+          {auth?.isAuthenticated ? (
+            <div className="flex items-center gap-2">
+              <span data-testid="auth-user-email" className="hidden font-mono text-[11px] text-slate-300 sm:inline">
+                {auth.email}
+              </span>
+              <Button
+                data-testid="sign-out-button"
+                onClick={auth.onSignOut}
+                size="sm"
+                variant="outline"
+                className="gap-1.5 border-border bg-secondary/40 font-mono text-xs text-slate-200 hover:bg-secondary active:scale-[0.98]"
+              >
+                <LogOut className="h-3.5 w-3.5" /> SIGN OUT
+              </Button>
+            </div>
+          ) : (
+            <Button
+              data-testid="sign-in-button"
+              onClick={auth?.onSignIn}
+              disabled={auth?.isLoading}
+              size="sm"
+              variant="outline"
+              className="gap-1.5 border-primary/30 bg-primary/10 font-mono text-xs text-primary hover:bg-primary/20 active:scale-[0.98]"
+            >
+              <LogIn className="h-3.5 w-3.5" /> {auth?.isLoading ? "…" : "SIGN IN"}
+            </Button>
+          )}
 
           <Button
             data-testid="s3-refresh-bucket-button"
