@@ -1,0 +1,145 @@
+{
+  "project_title": "AWS S3 Artifact & Release Distribution Portal",
+  "archetype": "THE PERFORMANCE PRO / SWISS TACTICAL DEV PORTAL",
+  "theme": {
+    "default_mode": "dark",
+    "theme_toggle_supported": true,
+    "primary_background": "hsl(224 25% 6%)",
+    "card_background": "hsl(222 20% 9%)",
+    "border_color": "hsl(220 16% 18%)",
+    "accent_primary": "hsl(190 95% 48%)",
+    "accent_secondary": "hsl(38 92% 50%)",
+    "success_color": "hsl(142 71% 45%)",
+    "destructive_color": "hsl(0 84% 60%)"
+  },
+  "typography": {
+    "font_family_heading": "JetBrains Mono, SF Mono, Menlo, Monaco, Consolas, monospace",
+    "font_family_body": "Plus Jakarta Sans, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif",
+    "font_family_code": "Source Code Pro, JetBrains Mono, monospace",
+    "headings": {
+      "h1": "text-3xl sm:text-4xl lg:text-5xl font-mono font-bold tracking-tight text-slate-50",
+      "h2": "text-xl sm:text-2xl lg:text-3xl font-mono font-semibold tracking-tight text-slate-100",
+      "h3": "text-lg sm:text-xl font-mono font-medium text-slate-200",
+      "h4": "text-base sm:text-lg font-mono font-medium text-slate-300"
+    },
+    "body": "text-sm sm:text-base font-sans text-slate-300 leading-relaxed",
+    "mono_meta": "font-mono text-xs uppercase tracking-wider text-slate-400"
+  },
+  "colors": {
+    "slate_950": "#0a0d14",
+    "slate_900": "#101522",
+    "slate_850": "#161d2f",
+    "slate_800": "#1e273d",
+    "slate_700": "#334155",
+    "cyan_400": "#22d3ee",
+    "cyan_500": "#06b6d4",
+    "amber_400": "#fbbf24",
+    "emerald_400": "#34d399",
+    "rose_500": "#f43f5e"
+  },
+  "layout_and_spacing": {
+    "grid_strategy": "MODE B - High Density Grid for Release Artifact Data",
+    "container_padding": "p-4 sm:p-6 lg:p-10",
+    "card_padding": "p-5 sm:p-6",
+    "gap_standard": "gap-4 sm:gap-6",
+    "header_height": "h-16 sm:h-20"
+  },
+  "key_components": [
+    {
+      "name": "Header & Storage Status Bar",
+      "description": "Sticky top bar with S3 Bucket Connection status, AWS Region pill, Live Sync trigger button, and theme toggle.",
+      "test_ids": {
+        "header": "portal-header",
+        "bucket_status": "s3-bucket-status-badge",
+        "sync_btn": "s3-refresh-bucket-button"
+      }
+    },
+    {
+      "name": "Latest Release Hero Banner",
+      "description": "Tactical hero card displaying the latest S3 folder name, timestamp, total file count, total release size, and quick 'Download All' batch trigger.",
+      "test_ids": {
+        "banner": "latest-release-banner",
+        "folder_name": "latest-folder-name",
+        "release_date": "latest-folder-date",
+        "download_all_btn": "download-all-release-files-button",
+        "folder_selector": "release-version-dropdown"
+      }
+    },
+    {
+      "name": "Artifact Filter & Search Bar",
+      "description": "Search input for filtering files by extension, name, or checksum, plus category pill filters (Binaries, Archives, Configs, Checksums).",
+      "test_ids": {
+        "search_input": "artifact-search-input",
+        "filter_pill_all": "filter-pill-all",
+        "filter_pill_binaries": "filter-pill-binaries",
+        "filter_pill_archives": "filter-pill-archives"
+      }
+    },
+    {
+      "name": "Artifact Files Table / Card Grid",
+      "description": "Interactive data table/grid listing files inside the latest release with S3 key, size, last modified, checksum copy button, link expiration timer badge, and individual download action button.",
+      "test_ids": {
+        "table": "artifact-files-table",
+        "file_row": "artifact-file-row-{filename}",
+        "file_name": "file-name-label",
+        "file_size": "file-size-label",
+        "download_btn": "download-file-button-{filename}",
+        "presigned_timer": "presigned-link-timer-{filename}"
+      }
+    },
+    {
+      "name": "Expiring Download Link Modal & Toast",
+      "description": "Displays the short-lived presigned AWS S3 URL with a 15-minute countdown clock, direct copy link button, and auto-download launcher.",
+      "test_ids": {
+        "link_modal": "presigned-link-modal",
+        "copy_link_btn": "copy-presigned-url-button",
+        "open_link_btn": "open-presigned-url-button"
+      }
+    },
+    {
+      "name": "Empty, Loading & Error States",
+      "description": "Custom high-tech skeletal shimmer for loading state, animated AWS S3 disconnect error alert with retry button, and empty bucket state.",
+      "test_ids": {
+        "loading_skeleton": "artifact-loading-skeleton",
+        "error_alert": "s3-error-alert",
+        "retry_btn": "retry-fetch-s3-button",
+        "empty_state": "empty-release-folder-state"
+      }
+    }
+  ],
+  "image_urls": [
+    {
+      "category": "Hero Background Grid",
+      "url": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "description": "Server datacenter network lights for tactical background accent"
+    },
+    {
+      "category": "Data Center Texture",
+      "url": "https://images.unsplash.com/photo-1561233835-f937539b95b9?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "description": "Modular server display backdrop"
+    }
+  ],
+  "motion_and_interactions": {
+    "hover_lift": "hover:-translate-y-0.5 transition-transform duration-200 ease-out",
+    "glow_hover": "hover:shadow-[0_0_20px_rgba(34,211,238,0.25)] transition-shadow duration-300",
+    "table_row_hover": "hover:bg-slate-800/60 transition-colors duration-150",
+    "button_active": "active:scale-[0.98] transition-transform duration-100"
+  },
+  "instructions_to_main_agent": [
+    "Build a modern React frontend with Tailwind CSS and Framer Motion.",
+    "Target JavaScript (.js / .jsx) components as configured in package.json.",
+    "Implement the FastAPI backend endpoints to list S3 folders, find the latest dated folder, parse contents, and generate 15-minute S3 presigned URLs using boto3.",
+    "In the UI, provide live countdown timers for active presigned URLs (15:00 min duration) that show remaining valid time.",
+    "Ensure every interactive element (buttons, filters, search, table rows) includes the required data-testid attributes.",
+    "Use Sonner for toast notifications when presigned links are copied or generated.",
+    "Never use pure black or transparent dropdowns without backdrop-blur."
+  ],
+  "GENERAL_UI_UX_DESIGN_GUIDELINES": {
+    "contrast_compliance": "WCAG AA / APCA compliant high contrast for dark mode.",
+    "interactive_states": "Hover, active, focus-visible ring, and disabled state styling on all inputs and buttons.",
+    "accessibility": "Aria attributes on modals, tooltips, and file table, keyboard navigable dropdowns."
+  }
+},
+path: "/app/design_guidelines.json",
+overwrite: true
+}
