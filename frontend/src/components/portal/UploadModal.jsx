@@ -119,6 +119,7 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
 
   const incomingNames = items.map((i) => i.file.name);
   const collisions = incomingNames.filter((n) => existingNames.includes(n));
+  const hasReadmeFile = items.some((it) => it.file.name.toLowerCase() === "readme.md");
 
   const submit = async () => {
     const mod = sanitizeSegment(module);
@@ -129,8 +130,8 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
     }
     setBusy(true);
     const queue = [...items];
-    if (newModuleMode && summary.trim()) {
-      const readme = new File([`# ${mod}\n\n${summary.trim()}\n`], "README.md", { type: "text/markdown" });
+    if (!hasReadmeFile && summary.trim()) {
+      const readme = new File([`${summary.trim()}\n`], "README.md", { type: "text/markdown" });
       queue.push({ id: "readme", file: readme, progress: 0, status: "pending" });
     }
     let okCount = 0;
@@ -190,7 +191,6 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
                     setVersion(s);
                     autoVersionRef.current = s;
                   } else {
-                    setSummary("");
                     onModuleChange(modules[0]?.module || "");
                   }
                 }}
@@ -227,22 +227,26 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
             )}
           </div>
 
-          {/* New module summary -> README.md (not editable, no DB) */}
-          {newModuleMode && (
-            <div className="space-y-1.5">
-              <Label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-                Module summary (saved as README.md)
-              </Label>
-              <Textarea
-                data-testid="upload-module-summary"
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                placeholder="Short description of this module…"
-                rows={3}
-                className="border-border bg-background/60 font-sans text-sm text-slate-200"
-              />
-            </div>
-          )}
+          {/* Version notes -> README.md (overridden by an uploaded README.md file) */}
+          <div className="space-y-1.5">
+            <Label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+              Version notes (saved as README.md)
+            </Label>
+            <Textarea
+              data-testid="upload-version-notes"
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              disabled={hasReadmeFile}
+              placeholder="Write anything about this version — changes, highlights, instructions… (Markdown supported)"
+              rows={3}
+              className="border-border bg-background/60 font-sans text-sm text-slate-200 disabled:opacity-50"
+            />
+            {hasReadmeFile && (
+              <p data-testid="readme-file-override-note" className="font-mono text-[10px] text-amber-300">
+                A README.md file is included in your upload — it will be used instead of these notes.
+              </p>
+            )}
+          </div>
 
           {/* Version (free text) */}
           <div className="space-y-1.5">
