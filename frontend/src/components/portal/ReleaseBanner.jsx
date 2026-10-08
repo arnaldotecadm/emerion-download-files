@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Calendar, FolderGit2, HardDrive, Files, DownloadCloud, Upload } from "lucide-react";
+import { Calendar, FolderGit2, HardDrive, Files, DownloadCloud, Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -26,7 +26,7 @@ const Stat = ({ icon: Icon, label, value, testId }) => (
   </div>
 );
 
-export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDownloadAll, downloadingAll, isAdmin, onUpload }) => {
+export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDownloadAll, downloadingAll, isAdmin, onUpload, onDeleteVersion }) => {
   if (!module) return null;
   const hasFiles = module.file_count > 0;
   return (
@@ -109,6 +109,17 @@ export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDown
               <DownloadCloud className="h-4 w-4" />
               {downloadingAll ? "PREPARING…" : "DOWNLOAD ALL"}
             </Button>
+            {isAdmin && selectedVersion && hasFiles && (
+              <Button
+                data-testid="delete-version-button"
+                onClick={onDeleteVersion}
+                variant="outline"
+                className="gap-2 border-destructive/30 bg-destructive/10 font-mono text-xs font-semibold text-destructive hover:bg-destructive/20 active:scale-[0.98]"
+              >
+                <Trash2 className="h-4 w-4" />
+                DELETE VERSION
+              </Button>
+            )}
           </div>
         </div>
 

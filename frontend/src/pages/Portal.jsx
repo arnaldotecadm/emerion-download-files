@@ -3,6 +3,16 @@ import { motion } from "framer-motion";
 import { AlertTriangle, Boxes, ChevronRight, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Header } from "@/components/portal/Header";
 import { ReleaseBanner } from "@/components/portal/ReleaseBanner";
 import { FileTable } from "@/components/portal/FileTable";
@@ -10,7 +20,7 @@ import { PresignedModal } from "@/components/portal/PresignedModal";
 import { UploadModal } from "@/components/portal/UploadModal";
 import { useAuth } from "react-oidc-context";
 import { cognitoSignOut } from "@/auth";
-import { getStatus, getModules, getModule, getDownloadUrl } from "@/lib/api";
+import { getStatus, getModules, getModule, getDownloadUrl, deleteKey, deleteVersion } from "@/lib/api";
 
 const triggerBrowserDownload = (url) => {
   const a = document.createElement("a");
@@ -136,6 +146,29 @@ export default function Portal() {
     }
   };
 
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      if (deleteTarget.type === "file") {
+        await deleteKey(deleteTarget.file.key, idToken);
+        toast.success(`Deleted ${deleteTarget.file.name}`);
+      } else {
+        const r = await deleteVersion(detail.module, selectedVersion, idToken);
+        toast.success(`Deleted version ${selectedVersion} (${r.count} file(s))`);
+      }
+      setDeleteTarget(null);
+      await loadAll(true);
+    } catch {
+      toast.error("Delete failed — ensure you are signed in as ADMIN");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header
@@ -235,6 +268,7 @@ export default function Portal() {
                     downloadingAll={downloadingAll}
                     isAdmin={isAdmin && auth.isAuthenticated}
                     onUpload={() => setUploadOpen(true)}
+                    onDeleteVersion={() => setDeleteTarget({ type: "version" })}
                   />
                   <FileTable
                     files={detail?.files || []}
@@ -243,6 +277,9 @@ export default function Portal() {
                     setSearch={setSearch}
                     onDownload={download}
                     downloadingKey={downloadingKey}
+                    isAdmin={isAdmin && auth.isAuthenticated}
+                    onDelete={(file) => setDeleteTarget({ type: "file", file })}
+                    deletingKey={deleting && deleteTarget?.type === "file" ? deleteTarget.file.key : null}
                   />
                 </motion.div>
               )}
@@ -260,6 +297,35 @@ export default function Portal() {
         idToken={idToken}
         onUploaded={() => loadAll(true)}
       />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && !deleting && setDeleteTarget(null)}>
+        <AlertDialogContent data-testid="delete-confirm-dialog" className="border-border bg-popover/95 backdrop-blur-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-mono text-slate-50">
+              {deleteTarget?.type === "file" ? "Delete file?" : "Delete entire version?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="font-sans text-xs text-muted-foreground">
+              {deleteTarget?.type === "file"
+                ? `This permanently removes "${deleteTarget?.file?.name}" from S3. This cannot be undone.`
+                : `This permanently removes ALL files in ${detail?.module}/${selectedVersion}. This cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="delete-cancel" disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="delete-confirm"
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

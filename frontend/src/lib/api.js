@@ -1,4 +1,4 @@
-import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { fromCognitoIdentityPool } from "@aws-sdk/credential-providers";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -170,6 +170,28 @@ export const uploadWithProgress = (url, file, onProgress) =>
     xhr.onerror = () => reject(new Error("Network error"));
     xhr.send(file);
   });
+
+export const listVersionFiles = (module, version, idToken) =>
+  filesFor(getS3(idToken), `${BASE_PREFIX}${module}/${version}/`);
+
+export const deleteKey = async (key, idToken) => {
+  await getS3(idToken).send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+  return { key };
+};
+
+export const deleteVersion = async (module, version, idToken) => {
+  const s3 = getS3(idToken);
+  const prefix = `${BASE_PREFIX}${module}/${version}/`;
+  let token;
+  const keys = [];
+  do {
+    const r = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, ContinuationToken: token }));
+    (r.Contents || []).forEach((o) => keys.push(o.Key));
+    token = r.IsTruncated ? r.NextContinuationToken : undefined;
+  } while (token);
+  for (const k of keys) await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: k }));
+  return { count: keys.length };
+};
 
 export const formatBytes = (bytes) => {
   if (!bytes || bytes <= 0) return "0 B";

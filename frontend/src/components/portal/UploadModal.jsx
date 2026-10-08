@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { UploadCloud, Loader2, FileUp, X, CheckCircle2, AlertCircle, FolderPlus } from "lucide-react";
+import { UploadCloud, Loader2, FileUp, X, CheckCircle2, AlertCircle, FolderPlus, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -11,8 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { getUploadUrl, uploadWithProgress, formatBytes } from "@/lib/api";
+import { getUploadUrl, uploadWithProgress, listVersionFiles, formatBytes } from "@/lib/api";
 
 let _uid = 0;
 const uid = () => `${Date.now()}-${_uid++}`;
@@ -32,7 +33,9 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
   const [module, setModule] = useState(defaultModule || "");
   const [newModuleMode, setNewModuleMode] = useState(false);
   const [version, setVersion] = useState("1.0.0");
+  const [summary, setSummary] = useState("");
   const [items, setItems] = useState([]); // { id, file, progress, status }
+  const [existingNames, setExistingNames] = useState([]);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const autoVersionRef = useRef("");
@@ -51,14 +54,39 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
       setVersion(s);
       autoVersionRef.current = s;
       setItems([]);
+      setSummary("");
+      setExistingNames([]);
       setBusy(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultModule, modules]);
 
+  // Overwrite guard: check what already exists at module/version.
+  useEffect(() => {
+    if (!open) return;
+    const mod = sanitizeSegment(module);
+    const ver = sanitizeSegment(version);
+    if (!mod || !ver) {
+      setExistingNames([]);
+      return;
+    }
+    let active = true;
+    const t = setTimeout(async () => {
+      try {
+        const existing = await listVersionFiles(mod, ver, idToken);
+        if (active) setExistingNames(existing.map((f) => f.name));
+      } catch {
+        if (active) setExistingNames([]);
+      }
+    }, 400);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, [open, module, version, idToken]);
+
   const onModuleChange = (val) => {
     setModule(val);
-    // Only overwrite the version if the user hasn't manually edited it.
     if (!version || version === autoVersionRef.current) {
       const s = suggestFor(val);
       setVersion(s);
@@ -89,6 +117,9 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
   const setProgress = (id, patch) =>
     setItems((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
 
+  const incomingNames = items.map((i) => i.file.name);
+  const collisions = incomingNames.filter((n) => existingNames.includes(n));
+
   const submit = async () => {
     const mod = sanitizeSegment(module);
     const ver = sanitizeSegment(version);
@@ -97,8 +128,13 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
       return;
     }
     setBusy(true);
+    const queue = [...items];
+    if (newModuleMode && summary.trim()) {
+      const readme = new File([`# ${mod}\n\n${summary.trim()}\n`], "README.md", { type: "text/markdown" });
+      queue.push({ id: "readme", file: readme, progress: 0, status: "pending" });
+    }
     let okCount = 0;
-    for (const it of items) {
+    for (const it of queue) {
       if (it.status === "done") {
         okCount++;
         continue;
@@ -109,7 +145,7 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
         await uploadWithProgress(url, it.file, (p) => setProgress(it.id, { progress: p }));
         setProgress(it.id, { status: "done", progress: 100 });
         okCount++;
-      } catch (e) {
+      } catch {
         setProgress(it.id, { status: "error" });
       }
     }
@@ -118,18 +154,15 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
       toast.success(`Uploaded ${okCount} file(s) to ${mod}/${ver}`);
       onUploaded?.();
     }
-    if (okCount === items.length) {
-      onOpenChange(false);
-    } else {
-      toast.error(`${items.length - okCount} file(s) failed`);
-    }
+    if (okCount === queue.length) onOpenChange(false);
+    else toast.error(`${queue.length - okCount} file(s) failed`);
   };
 
   const targetLabel = `${sanitizeSegment(module) || "<module>"}/${sanitizeSegment(version) || "<version>"}/`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="upload-modal" className="border-border bg-popover/95 backdrop-blur-xl sm:max-w-lg">
+      <DialogContent data-testid="upload-modal" className="max-h-[90vh] overflow-y-auto border-border bg-popover/95 backdrop-blur-xl sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-mono text-lg text-slate-50">
             <UploadCloud className="h-5 w-5 text-primary" /> Upload Artifacts
@@ -157,6 +190,7 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
                     setVersion(s);
                     autoVersionRef.current = s;
                   } else {
+                    setSummary("");
                     onModuleChange(modules[0]?.module || "");
                   }
                 }}
@@ -193,6 +227,23 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
             )}
           </div>
 
+          {/* New module summary -> README.md (not editable, no DB) */}
+          {newModuleMode && (
+            <div className="space-y-1.5">
+              <Label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                Module summary (saved as README.md)
+              </Label>
+              <Textarea
+                data-testid="upload-module-summary"
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                placeholder="Short description of this module…"
+                rows={3}
+                className="border-border bg-background/60 font-sans text-sm text-slate-200"
+              />
+            </div>
+          )}
+
           {/* Version (free text) */}
           <div className="space-y-1.5">
             <Label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -206,6 +257,22 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
               className="border-border bg-background/60 font-mono text-sm text-slate-200"
             />
           </div>
+
+          {/* Overwrite guard */}
+          {existingNames.length > 0 && (
+            <div
+              data-testid="overwrite-warning"
+              className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-mono text-[11px] text-amber-300"
+            >
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div>
+                This version already contains {existingNames.length} file(s).
+                {collisions.length > 0 && (
+                  <span className="text-amber-200"> {collisions.length} will be overwritten: {collisions.join(", ")}</span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Dropzone */}
           <div className="space-y-1.5">
@@ -253,9 +320,7 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate font-mono text-xs text-slate-200">{it.file.name}</span>
                       <div className="flex shrink-0 items-center gap-2">
-                        <span className="font-mono text-[10px] text-muted-foreground">
-                          {formatBytes(it.file.size)}
-                        </span>
+                        <span className="font-mono text-[10px] text-muted-foreground">{formatBytes(it.file.size)}</span>
                         {it.status === "done" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />}
                         {it.status === "error" && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
                         {!busy && it.status !== "done" && (
@@ -272,14 +337,8 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
                     </div>
                     {(it.status === "uploading" || it.status === "done") && (
                       <div className="mt-2 flex items-center gap-2">
-                        <Progress
-                          data-testid={`upload-file-progress-${it.file.name}`}
-                          value={it.progress}
-                          className={`h-1.5 ${it.status === "done" ? "bg-emerald-500/20" : ""}`}
-                        />
-                        <span className="w-9 text-right font-mono text-[10px] text-muted-foreground">
-                          {it.progress}%
-                        </span>
+                        <Progress data-testid={`upload-file-progress-${it.file.name}`} value={it.progress} className="h-1.5" />
+                        <span className="w-9 text-right font-mono text-[10px] text-muted-foreground">{it.progress}%</span>
                       </div>
                     )}
                     {it.status === "error" && (

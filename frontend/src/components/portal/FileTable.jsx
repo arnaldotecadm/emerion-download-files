@@ -9,6 +9,7 @@ import {
   Loader2,
   Search,
   Inbox,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,9 @@ export const FileTable = ({
   setSearch,
   onDownload,
   downloadingKey,
+  isAdmin,
+  onDelete,
+  deletingKey,
 }) => {
   const visible = files.filter((f) =>
     f.name.toLowerCase().includes(search.toLowerCase())
@@ -151,7 +155,7 @@ export const FileTable = ({
                   <div className="col-span-3 font-mono text-xs text-muted-foreground">
                     {fmtDate(f.last_modified)}
                   </div>
-                  <div className="col-span-1 flex sm:justify-end">
+                  <div className="col-span-1 flex items-center gap-1.5 sm:justify-end">
                     <Button
                       data-testid={`download-file-button-${f.name}`}
                       onClick={() => onDownload(f)}
@@ -167,6 +171,22 @@ export const FileTable = ({
                       )}
                       <span className="sm:hidden">Download</span>
                     </Button>
+                    {isAdmin && (
+                      <Button
+                        data-testid={`delete-file-button-${f.name}`}
+                        onClick={() => onDelete(f)}
+                        disabled={deletingKey === f.key}
+                        size="sm"
+                        variant="outline"
+                        className="border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-[0.98]"
+                      >
+                        {deletingKey === f.key ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </motion.div>
               );

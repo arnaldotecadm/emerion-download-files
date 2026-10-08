@@ -41,4 +41,11 @@ A React app (deployed on AWS) that reads the latest version of a folder in S3, l
 
 ## Next Tasks
 - Harden IAM to least-privilege role at deploy time; remove long-lived keys.
+
+## Delete + Upload-guard + README (2026-06-08)
+- Delete (ADMIN): per-file delete button and "Delete version" (removes all files incl. folder marker) with AlertDialog confirm. Added `s3:DeleteObject` to admin IAM role and `DELETE` to bucket CORS. api: `deleteKey`, `deleteVersion`.
+- Overwrite guard: UploadModal checks module/version contents (`listVersionFiles`) and warns "already contains N file(s)" + lists filename collisions.
+- Free-text version with next-minor suggestion; drag-and-drop + per-file progress bars (presigned PUT + XHR).
+- New module creation from upload dialog; optional summary saved as `README.md` inside `module/version/` (no DB, not editable).
+- All verified in-browser end-to-end (create module+README, overwrite warning, delete file, delete version). Test data cleaned from bucket.
 - Optional auth layer if access must be restricted.
