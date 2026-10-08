@@ -14,6 +14,17 @@ export const getModule = (module, version) =>
 export const getDownloadUrl = (key) =>
   axios.get(`${API}/download`, { params: { key } }).then((r) => r.data);
 
+export const uploadFiles = (module, version, files, token) => {
+  const form = new FormData();
+  form.append("version", version);
+  files.forEach((f) => form.append("files", f));
+  return axios
+    .post(`${API}/modules/${encodeURIComponent(module)}/upload`, form, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then((r) => r.data);
+};
+
 export const formatBytes = (bytes) => {
   if (!bytes || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
