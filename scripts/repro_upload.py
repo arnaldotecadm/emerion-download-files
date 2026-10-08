@@ -49,4 +49,3 @@ try:
     print('PUT OK')
 except Exception as e:
     print('PUT FAILED:', repr(e))
-PY
