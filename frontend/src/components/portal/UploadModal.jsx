@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { UploadCloud, Loader2, FileUp } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { UploadCloud, Loader2, FileUp, X, CheckCircle2, AlertCircle, FolderPlus } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -11,51 +11,121 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { uploadFiles, formatBytes } from "@/lib/api";
+import { Progress } from "@/components/ui/progress";
+import { getUploadUrl, uploadWithProgress, formatBytes } from "@/lib/api";
 
-const today = () => new Date().toISOString().slice(0, 10);
+let _uid = 0;
+const uid = () => `${Date.now()}-${_uid++}`;
+
+// Suggest the next version: bump the minor and reset patch (1.5.0 -> 1.6.0).
+// Falls back to 1.0.0 (new module) or the raw latest string for non-semver.
+const suggestVersion = (latest) => {
+  if (!latest) return "1.0.0";
+  const m = String(latest).match(/^(\d+)\.(\d+)(?:\.(\d+))?(.*)$/);
+  if (m) return `${m[1]}.${Number(m[2]) + 1}.0`;
+  return latest;
+};
+
+const sanitizeSegment = (s) => s.trim().replace(/[/\\]/g, "").replace(/\s+/g, "-");
 
 export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToken, onUploaded }) => {
   const [module, setModule] = useState(defaultModule || "");
-  const [version, setVersion] = useState(today());
-  const [files, setFiles] = useState([]);
+  const [newModuleMode, setNewModuleMode] = useState(false);
+  const [version, setVersion] = useState("1.0.0");
+  const [items, setItems] = useState([]); // { id, file, progress, status }
   const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const autoVersionRef = useRef("");
+
+  const suggestFor = (modName) => {
+    const m = modules.find((x) => x.module === modName);
+    return suggestVersion(m?.latest_version);
+  };
 
   useEffect(() => {
     if (open) {
-      setModule(defaultModule || (modules[0]?.module ?? ""));
-      setVersion(today());
-      setFiles([]);
+      const initial = defaultModule || modules[0]?.module || "";
+      setModule(initial);
+      setNewModuleMode(modules.length === 0);
+      const s = suggestFor(initial);
+      setVersion(s);
+      autoVersionRef.current = s;
+      setItems([]);
+      setBusy(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultModule, modules]);
 
+  const onModuleChange = (val) => {
+    setModule(val);
+    // Only overwrite the version if the user hasn't manually edited it.
+    if (!version || version === autoVersionRef.current) {
+      const s = suggestFor(val);
+      setVersion(s);
+      autoVersionRef.current = s;
+    }
+  };
+
+  const addFiles = (fileList) => {
+    const incoming = Array.from(fileList || []);
+    if (!incoming.length) return;
+    setItems((prev) => {
+      const existing = new Set(prev.map((p) => p.file.name + p.file.size));
+      const add = incoming
+        .filter((f) => !existing.has(f.name + f.size))
+        .map((f) => ({ id: uid(), file: f, progress: 0, status: "pending" }));
+      return [...prev, ...add];
+    });
+  };
+
+  const removeItem = (id) => setItems((prev) => prev.filter((p) => p.id !== id));
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    addFiles(e.dataTransfer.files);
+  };
+
+  const setProgress = (id, patch) =>
+    setItems((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+
   const submit = async () => {
-    if (!module || !version || files.length === 0) {
-      toast.error("Pick a module, version date and at least one file");
+    const mod = sanitizeSegment(module);
+    const ver = sanitizeSegment(version);
+    if (!mod || !ver || items.length === 0) {
+      toast.error("Enter a module, version and at least one file");
       return;
     }
     setBusy(true);
-    try {
-      const res = await uploadFiles(module, version, files, idToken);
-      toast.success(`Uploaded ${res.count} file(s) to ${module}/${version}`);
-      onOpenChange(false);
+    let okCount = 0;
+    for (const it of items) {
+      if (it.status === "done") {
+        okCount++;
+        continue;
+      }
+      try {
+        setProgress(it.id, { status: "uploading", progress: 0 });
+        const { url } = await getUploadUrl(mod, ver, it.file.name, idToken);
+        await uploadWithProgress(url, it.file, (p) => setProgress(it.id, { progress: p }));
+        setProgress(it.id, { status: "done", progress: 100 });
+        okCount++;
+      } catch (e) {
+        setProgress(it.id, { status: "error" });
+      }
+    }
+    setBusy(false);
+    if (okCount > 0) {
+      toast.success(`Uploaded ${okCount} file(s) to ${mod}/${ver}`);
       onUploaded?.();
-    } catch (e) {
-      const s = e?.response?.status;
-      if (s === 401) toast.error("Please sign in again to upload");
-      else if (s === 403) toast.error("Your account is not in the ADMIN group");
-      else toast.error(e?.response?.data?.detail || "Upload failed");
-    } finally {
-      setBusy(false);
+    }
+    if (okCount === items.length) {
+      onOpenChange(false);
+    } else {
+      toast.error(`${items.length - okCount} file(s) failed`);
     }
   };
+
+  const targetLabel = `${sanitizeSegment(module) || "<module>"}/${sanitizeSegment(version) || "<version>"}/`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,59 +136,155 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
           </DialogTitle>
           <DialogDescription className="font-sans text-xs text-muted-foreground">
             Admin only. Files upload to{" "}
-            <span className="font-mono text-slate-200">{module}/{version}/</span> in the S3 bucket.
+            <span className="font-mono text-slate-200">{targetLabel}</span> in the S3 bucket.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Module */}
           <div className="space-y-1.5">
-            <Label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Module</Label>
-            <Select value={module} onValueChange={setModule}>
-              <SelectTrigger data-testid="upload-module-select" className="border-border bg-background/60 font-mono text-sm text-slate-200">
-                <SelectValue placeholder="Select module" />
-              </SelectTrigger>
-              <SelectContent className="border-border bg-popover/95 font-mono text-xs backdrop-blur-xl">
-                {modules.map((m) => (
-                  <SelectItem key={m.module} value={m.module}>{m.module}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Module</Label>
+              <button
+                type="button"
+                data-testid="toggle-new-module"
+                onClick={() => {
+                  const next = !newModuleMode;
+                  setNewModuleMode(next);
+                  if (next) {
+                    setModule("");
+                    const s = suggestVersion(null);
+                    setVersion(s);
+                    autoVersionRef.current = s;
+                  } else {
+                    onModuleChange(modules[0]?.module || "");
+                  }
+                }}
+                className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-primary hover:text-primary/80"
+              >
+                {newModuleMode ? <X className="h-3 w-3" /> : <FolderPlus className="h-3 w-3" />}
+                {newModuleMode ? "Pick existing" : "New module"}
+              </button>
+            </div>
+            {newModuleMode ? (
+              <Input
+                data-testid="upload-module-input"
+                value={module}
+                onChange={(e) => onModuleChange(e.target.value)}
+                placeholder="e.g. EFolha"
+                className="border-border bg-background/60 font-mono text-sm text-slate-200"
+              />
+            ) : (
+              <>
+                <Input
+                  data-testid="upload-module-input"
+                  list="module-suggestions"
+                  value={module}
+                  onChange={(e) => onModuleChange(e.target.value)}
+                  placeholder="Select or type a module"
+                  className="border-border bg-background/60 font-mono text-sm text-slate-200"
+                />
+                <datalist id="module-suggestions">
+                  {modules.map((m) => (
+                    <option key={m.module} value={m.module} />
+                  ))}
+                </datalist>
+              </>
+            )}
           </div>
 
+          {/* Version (free text) */}
           <div className="space-y-1.5">
-            <Label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Version (date folder)</Label>
+            <Label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+              Version (free text — suggested: next minor)
+            </Label>
             <Input
               data-testid="upload-version-input"
-              type="date"
               value={version}
               onChange={(e) => setVersion(e.target.value)}
+              placeholder="e.g. 1.6.0"
               className="border-border bg-background/60 font-mono text-sm text-slate-200"
             />
           </div>
 
+          {/* Dropzone */}
           <div className="space-y-1.5">
             <Label className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Files</Label>
             <label
               htmlFor="upload-file-input"
-              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background/40 px-4 py-6 text-center transition-colors hover:border-primary/40 hover:bg-secondary/30"
+              data-testid="upload-dropzone"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-7 text-center transition-colors ${
+                dragging
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-background/40 hover:border-primary/40 hover:bg-secondary/30"
+              }`}
             >
-              <FileUp className="h-6 w-6 text-primary" />
-              <span className="font-mono text-xs text-slate-300">Click to choose file(s)</span>
+              <FileUp className={`h-6 w-6 ${dragging ? "text-primary" : "text-primary/80"}`} />
+              <span className="font-mono text-xs text-slate-300">
+                {dragging ? "Drop files here" : "Drag & drop or click to choose file(s)"}
+              </span>
               <input
                 id="upload-file-input"
                 data-testid="upload-file-input"
                 type="file"
                 multiple
                 className="hidden"
-                onChange={(e) => setFiles(Array.from(e.target.files || []))}
+                onChange={(e) => {
+                  addFiles(e.target.files);
+                  e.target.value = "";
+                }}
               />
             </label>
-            {files.length > 0 && (
-              <div className="space-y-1">
-                {files.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-md border border-border bg-background/40 px-3 py-1.5">
-                    <span className="truncate font-mono text-xs text-slate-200">{f.name}</span>
-                    <span className="ml-2 shrink-0 font-mono text-[10px] text-muted-foreground">{formatBytes(f.size)}</span>
+
+            {items.length > 0 && (
+              <div className="max-h-56 space-y-2 overflow-y-auto pt-1">
+                {items.map((it) => (
+                  <div
+                    key={it.id}
+                    data-testid={`upload-file-item-${it.file.name}`}
+                    className="rounded-md border border-border bg-background/40 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-mono text-xs text-slate-200">{it.file.name}</span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {formatBytes(it.file.size)}
+                        </span>
+                        {it.status === "done" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />}
+                        {it.status === "error" && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
+                        {!busy && it.status !== "done" && (
+                          <button
+                            type="button"
+                            data-testid={`upload-remove-file-${it.file.name}`}
+                            onClick={() => removeItem(it.id)}
+                            className="text-muted-foreground hover:text-slate-200"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {(it.status === "uploading" || it.status === "done") && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <Progress
+                          data-testid={`upload-file-progress-${it.file.name}`}
+                          value={it.progress}
+                          className={`h-1.5 ${it.status === "done" ? "bg-emerald-500/20" : ""}`}
+                        />
+                        <span className="w-9 text-right font-mono text-[10px] text-muted-foreground">
+                          {it.progress}%
+                        </span>
+                      </div>
+                    )}
+                    {it.status === "error" && (
+                      <div className="mt-1 font-mono text-[10px] text-destructive">Upload failed — retry</div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -128,11 +294,11 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
           <Button
             data-testid="upload-submit-button"
             onClick={submit}
-            disabled={busy}
+            disabled={busy || items.length === 0}
             className="w-full gap-2 bg-primary font-mono text-xs font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98]"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-            {busy ? "UPLOADING…" : "UPLOAD"}
+            {busy ? "UPLOADING…" : `UPLOAD ${items.length || ""}`.trim()}
           </Button>
         </div>
       </DialogContent>

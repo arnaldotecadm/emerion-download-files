@@ -145,6 +145,32 @@ export const uploadFiles = async (module, version, files, idToken) => {
   return { uploaded, count: uploaded.length, module, version };
 };
 
+export const getUploadUrl = async (module, version, filename, idToken) => {
+  const s3 = getS3(idToken);
+  const safe = filename.replace(/[/\\]/g, "_");
+  const key = `${BASE_PREFIX}${module}/${version}/${safe}`;
+  const url = await getSignedUrl(s3, new PutObjectCommand({ Bucket: BUCKET, Key: key }), {
+    expiresIn: PRESIGN_EXPIRY,
+  });
+  return { url, key };
+};
+
+// Raw XHR PUT so we get real upload progress events in the browser.
+export const uploadWithProgress = (url, file, onProgress) =>
+  new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error(`HTTP ${xhr.status}`));
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(file);
+  });
+
 export const formatBytes = (bytes) => {
   if (!bytes || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
