@@ -23,7 +23,15 @@ A React app (deployed on AWS) that reads the latest version of a folder in S3, l
 - Latest-version resolution (sorted desc) — verified resolves 2026-06-01 over 2026-01-01.
 - Frontend: module sidebar, latest-release banner (version dropdown, download-all, stats), artifact table with search + category filters, per-file download, secure-link modal with live 15:00 countdown + copy.
 - Live AWS S3 integration verified end-to-end (real presigned download HTTP 200). Tested 100% backend + frontend.
-- Demo: 5 sample files uploaded to `EComercial/2026-06-01/` (removable).
+
+## Re-architected to fully client-side (2026-06-08)
+- Dropped backend dependency: the React app now talks to S3 directly via AWS SDK v3 + a Cognito **Identity Pool** (`eu-north-1:904ac5e6-6753-4caf-a153-94fecab60d0e`). Backend (`server.py`) left clean but unused.
+- Public (guest) browse + 15-min presigned downloads with no login (guest IAM role: s3:ListBucket + GetObject).
+- Cognito Hosted UI (OIDC code+PKCE via react-oidc-context) login; `cognito:groups` drives the UI.
+- ADMIN-only upload: `UploadModal` writes directly to S3 (PutObject). Enforced by IAM role mapping — ADMIN group → `EmerionReleaseVault-Admin` role (adds s3:PutObject). Fixed browser SDK PutObject (checksum WHEN_REQUIRED + Uint8Array body).
+- AWS provisioning (via root keys): Identity Pool + guest/auth/admin IAM roles, ADMIN group role, bucket CORS, and app-client callback/logout URLs for the preview origin.
+- Verified end-to-end in-browser: guest list/download, ADMIN login, ADMIN upload (PUT 200, file appears). Latest-version dropdown tags newest as LATEST; filter pills removed (search only).
+- Test ADMIN user: releasevault-admin@emerion.test / Rel3aseVault!2026 (deletable).
 
 ## Backlog / Remaining
 - P1: Per-tenant/prefix auth before production (IAM role on AWS compute instead of access keys).

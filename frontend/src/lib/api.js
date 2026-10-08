@@ -18,6 +18,8 @@ const getS3 = (idToken) => {
   if (_client && _clientKey === key) return _client;
   _client = new S3Client({
     region: REGION,
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
     credentials: fromCognitoIdentityPool({
       identityPoolId: IDENTITY_POOL_ID,
       ...(idToken ? { logins: { [LOGIN_KEY]: idToken } } : {}),
@@ -129,8 +131,14 @@ export const uploadFiles = async (module, version, files, idToken) => {
   for (const f of files) {
     const safe = f.name.replace(/[/\\]/g, "_");
     const key = `${BASE_PREFIX}${module}/${version}/${safe}`;
+    const body = new Uint8Array(await f.arrayBuffer());
     await s3.send(
-      new PutObjectCommand({ Bucket: BUCKET, Key: key, Body: f, ContentType: f.type || "application/octet-stream" })
+      new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        Body: body,
+        ContentType: f.type || "application/octet-stream",
+      })
     );
     uploaded.push(key);
   }
