@@ -90,34 +90,47 @@ export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDown
               </Select>
             )}
             {isAdmin && (
-              <Button
-                data-testid="upload-artifacts-button"
-                onClick={onUpload}
-                variant="outline"
-                className="gap-2 border-primary/30 bg-primary/10 font-mono text-xs font-semibold text-primary hover:bg-primary/20 active:scale-[0.98]"
-              >
-                <Upload className="h-4 w-4" />
-                UPLOAD
-              </Button>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  data-testid="upload-artifacts-button"
+                  onClick={onUpload}
+                  variant="outline"
+                  className="gap-2 border-primary/30 bg-primary/10 font-mono text-xs font-semibold text-primary hover:bg-primary/20 active:scale-[0.98]"
+                >
+                  <Upload className="h-4 w-4" />
+                  UPLOAD
+                </Button>
+                <Button
+                  data-testid="download-all-release-files-button"
+                  onClick={onDownloadAll}
+                  disabled={!hasFiles || downloadingAll}
+                  className="gap-2 bg-primary font-mono text-xs font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98]"
+                >
+                  <DownloadCloud className="h-4 w-4" />
+                  {downloadingAll ? "PREPARING…" : "DOWNLOAD ALL"}
+                </Button>
+                {selectedVersion && hasFiles && (
+                  <Button
+                    data-testid="delete-version-button"
+                    onClick={onDeleteVersion}
+                    variant="outline"
+                    className="gap-2 border-destructive/30 bg-destructive/10 font-mono text-xs font-semibold text-destructive hover:bg-destructive/20 active:scale-[0.98]"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    DELETE VERSION
+                  </Button>
+                )}
+              </div>
             )}
-            <Button
-              data-testid="download-all-release-files-button"
-              onClick={onDownloadAll}
-              disabled={!hasFiles || downloadingAll}
-              className="gap-2 bg-primary font-mono text-xs font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98]"
-            >
-              <DownloadCloud className="h-4 w-4" />
-              {downloadingAll ? "PREPARING…" : "DOWNLOAD ALL"}
-            </Button>
-            {isAdmin && selectedVersion && hasFiles && (
+            {!isAdmin && (
               <Button
-                data-testid="delete-version-button"
-                onClick={onDeleteVersion}
-                variant="outline"
-                className="gap-2 border-destructive/30 bg-destructive/10 font-mono text-xs font-semibold text-destructive hover:bg-destructive/20 active:scale-[0.98]"
+                data-testid="download-all-release-files-button"
+                onClick={onDownloadAll}
+                disabled={!hasFiles || downloadingAll}
+                className="gap-2 bg-primary font-mono text-xs font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98]"
               >
-                <Trash2 className="h-4 w-4" />
-                DELETE VERSION
+                <DownloadCloud className="h-4 w-4" />
+                {downloadingAll ? "PREPARING…" : "DOWNLOAD ALL"}
               </Button>
             )}
           </div>

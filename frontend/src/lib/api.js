@@ -171,6 +171,11 @@ export const uploadWithProgress = (url, file, onProgress) =>
     xhr.send(file);
   });
 
+export const getFileText = async (key, idToken) => {
+  const r = await getS3(idToken).send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+  return r.Body.transformToString();
+};
+
 export const listVersionFiles = (module, version, idToken) =>
   filesFor(getS3(idToken), `${BASE_PREFIX}${module}/${version}/`);
 

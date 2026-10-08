@@ -16,11 +16,12 @@ import {
 import { Header } from "@/components/portal/Header";
 import { ReleaseBanner } from "@/components/portal/ReleaseBanner";
 import { FileTable } from "@/components/portal/FileTable";
+import { ReadmeNotes } from "@/components/portal/ReadmeNotes";
 import { PresignedModal } from "@/components/portal/PresignedModal";
 import { UploadModal } from "@/components/portal/UploadModal";
 import { useAuth } from "react-oidc-context";
 import { cognitoSignOut } from "@/auth";
-import { getStatus, getModules, getModule, getDownloadUrl, deleteKey, deleteVersion } from "@/lib/api";
+import { getStatus, getModules, getModule, getDownloadUrl, getFileText, deleteKey, deleteVersion } from "@/lib/api";
 
 const triggerBrowserDownload = (url) => {
   const a = document.createElement("a");
@@ -44,6 +45,8 @@ export default function Portal() {
     ? groupsClaim.includes("ADMIN")
     : groupsClaim === "ADMIN";
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [readmeText, setReadmeText] = useState(null);
+  const [readmeLoading, setReadmeLoading] = useState(false);
 
   const [status, setStatus] = useState(null);
   const [modules, setModules] = useState([]);
@@ -90,6 +93,24 @@ export default function Portal() {
     loadAll(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const readme = (detail?.files || []).find((f) => f.name.toLowerCase() === "readme.md");
+    if (!readme) {
+      setReadmeText(null);
+      return;
+    }
+    let active = true;
+    setReadmeLoading(true);
+    getFileText(readme.key, idToken)
+      .then((t) => active && setReadmeText(t))
+      .catch(() => active && setReadmeText(null))
+      .finally(() => active && setReadmeLoading(false));
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail, idToken]);
 
   const selectModule = (mod) => {
     setSelectedName(mod.module);
@@ -270,8 +291,9 @@ export default function Portal() {
                     onUpload={() => setUploadOpen(true)}
                     onDeleteVersion={() => setDeleteTarget({ type: "version" })}
                   />
+                  <ReadmeNotes content={readmeText} loading={readmeLoading} />
                   <FileTable
-                    files={detail?.files || []}
+                    files={(detail?.files || []).filter((f) => f.name.toLowerCase() !== "readme.md")}
                     loading={filesLoading}
                     search={search}
                     setSearch={setSearch}
