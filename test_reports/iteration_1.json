@@ -1,0 +1,24 @@
+{
+  "summary": "First-finish smoke test of Emerion Release Vault portal (React + FastAPI + real AWS S3). Backend endpoints and frontend flows all working. Latest version resolution to 2026-06-01 verified end-to-end. Presigned URL downloads valid with 15-min TTL.",
+  "tested_scope": ["backend", "frontend", "integration"],
+  "passed": [
+    "GET /api/status -> connected=true, bucket=emerion-program-fles, region=eu-north-1",
+    "GET /api/modules -> EComercial with latest_version=2026-06-01, versions sorted newest-first [2026-06-01,2026-01-01], 5 files, total_size=144286, no zero-byte folder entries",
+    "GET /api/modules/EComercial?version=2026-01-01 -> empty files list (version override works)",
+    "GET /api/download?key=EComercial/2026-06-01/RELEASE_NOTES.md -> presigned url with expires_in=900, X-Amz-Expires=900; fetching URL returns HTTP 200 with correct 147-byte body",
+    "GET /api/download?key=../etc/passwd -> HTTP 400 (path traversal rejected)",
+    "Frontend loads at REACT_APP_BACKEND_URL; sidebar shows module-item-EComercial",
+    "Latest release banner shows EComercial, 2026-06-01, 5 artifacts, 140.9 KB, 2 versions",
+    "Search input filters file list (RELEASE narrows to RELEASE_NOTES.md)",
+    "Filter pill 'binaries' shows only EComercial-setup.exe; 'all' resets list",
+    "Download button opens presigned-link-modal with 15:00 countdown timer, copy & open buttons present",
+    "Version dropdown switch to 2026-01-01 updates banner (2026-01-01, 0 artifacts, 0 B) and shows 'No artifacts found' empty state",
+    "Sync/refresh button clickable without errors"
+  ],
+  "failed": [],
+  "action_items": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": "Live AWS S3 integration verified (not mocked). Presigned URL fetched directly from S3 returned real file bytes. No credentials file needed (no auth)."
+}
