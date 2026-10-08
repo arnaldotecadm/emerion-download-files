@@ -29,7 +29,7 @@ const suggestVersion = (latest) => {
 
 const sanitizeSegment = (s) => s.trim().replace(/[/\\]/g, "").replace(/\s+/g, "-");
 
-export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToken, onUploaded }) => {
+export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToken, uploaderEmail, onUploaded }) => {
   const [module, setModule] = useState(defaultModule || "");
   const [newModuleMode, setNewModuleMode] = useState(false);
   const [version, setVersion] = useState("1.0.0");
@@ -128,10 +128,19 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
       toast.error("Enter a module, version and at least one file");
       return;
     }
+    if (!hasReadmeFile && !summary.trim()) {
+      toast.error("Enter version notes or include a README.md file");
+      return;
+    }
     setBusy(true);
     const queue = [...items];
     if (!hasReadmeFile && summary.trim()) {
-      const readme = new File([`${summary.trim()}\n`], "README.md", { type: "text/markdown" });
+      const safeEmail = (uploaderEmail || "Unknown user")
+        .replace(/[\r\n]+/g, " ")
+        .replace(/\*/g, "\\*")
+        .replace(/_/g, "\\_");
+      const metadata = `**Uploaded by:** ${safeEmail}  \n**Uploaded at:** ${new Date().toISOString()}\n\n`;
+      const readme = new File([`${metadata}**Changes:**\n\n${summary.trim()}\n`], "README.md", { type: "text/markdown" });
       queue.push({ id: "readme", file: readme, progress: 0, status: "pending" });
     }
     let okCount = 0;
@@ -237,6 +246,8 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
               disabled={hasReadmeFile}
+              required={!hasReadmeFile}
+              aria-required={!hasReadmeFile}
               placeholder="Write anything about this version — changes, highlights, instructions… (Markdown supported)"
               rows={3}
               className="border-border bg-background/60 font-sans text-sm text-slate-200 disabled:opacity-50"

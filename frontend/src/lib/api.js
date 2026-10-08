@@ -32,6 +32,23 @@ const getS3 = (idToken) => {
 
 const seg = (prefix, parent) => prefix.slice(parent.length).replace(/\/$/, "");
 
+const versionSortKey = (version) => {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  return match ? [1, ...match.slice(1).map(Number), version] : [0, version];
+};
+
+const compareVersions = (a, b) => {
+  const aKey = versionSortKey(a);
+  const bKey = versionSortKey(b);
+  if (aKey[0] !== bKey[0]) return bKey[0] - aKey[0];
+  if (aKey[0] === 1) {
+    for (let i = 1; i <= 3; i += 1) {
+      if (aKey[i] !== bKey[i]) return bKey[i] - aKey[i];
+    }
+  }
+  return b.localeCompare(a);
+};
+
 const listLevel = async (s3, prefix) => {
   const folders = [];
   const objects = [];
@@ -64,7 +81,7 @@ const filesFor = async (s3, prefix) => {
 const buildModule = async (s3, modulePrefix) => {
   const name = seg(modulePrefix, BASE_PREFIX);
   const { folders, objects } = await listLevel(s3, modulePrefix);
-  const versions = folders.map((f) => seg(f, modulePrefix)).sort().reverse();
+  const versions = folders.map((f) => seg(f, modulePrefix)).sort(compareVersions);
   let latest = null;
   let files = [];
   if (versions.length) {

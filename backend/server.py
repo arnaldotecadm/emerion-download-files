@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import os
 import logging
+import re
 from pathlib import Path
 from pydantic import BaseModel
 from typing import List, Optional
@@ -93,6 +94,14 @@ def _segment(prefix: str, parent: str) -> str:
     return prefix[len(parent):].rstrip('/')
 
 
+def _version_sort_key(version: str):
+    """Sort three-part numeric versions numerically, with a lexical fallback."""
+    match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)', version)
+    if match:
+        return (1, *(int(part) for part in match.groups()), version)
+    return (0, version)
+
+
 def _files_for_prefix(prefix: str) -> List[FileItem]:
     _, objects = _list_level(prefix)
     items = [
@@ -111,8 +120,8 @@ def _build_module(module_prefix: str) -> ModuleInfo:
     module_name = _segment(module_prefix, BASE_PREFIX)
     version_prefixes, direct_objects = _list_level(module_prefix)
     versions = [_segment(vp, module_prefix) for vp in version_prefixes]
-    # Newest first (dated/version folder names sort lexicographically)
-    versions_sorted = sorted(versions, reverse=True)
+    # Newest first; compare numeric version components instead of raw strings.
+    versions_sorted = sorted(versions, key=_version_sort_key, reverse=True)
 
     info = ModuleInfo(module=module_name, prefix=module_prefix, versions=versions_sorted)
 

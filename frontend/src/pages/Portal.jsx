@@ -38,6 +38,8 @@ export default function Portal() {
   const idToken = auth.isAuthenticated ? auth.user?.id_token : undefined;
   const email =
     auth.user?.profile?.email ||
+    auth.user?.profile?.preferred_username ||
+    auth.user?.profile?.name ||
     auth.user?.profile?.["cognito:username"] ||
     auth.user?.profile?.sub;
   const groupsClaim = auth.user?.profile?.["cognito:groups"];
@@ -317,6 +319,7 @@ export default function Portal() {
         modules={modules}
         defaultModule={selectedName}
         idToken={idToken}
+        uploaderEmail={email}
         onUploaded={() => loadAll(true)}
       />
 
