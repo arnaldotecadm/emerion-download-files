@@ -43,6 +43,19 @@ const saveUrlToHandle = async (url, fileHandle) => {
 
 const isPickerCancelled = (error) => error?.name === "AbortError";
 
+const getIdTokenClaims = (idToken) => {
+  if (!idToken) return null;
+  try {
+    const payload = idToken.split(".")[1];
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const bytes = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+};
+
 export default function Portal() {
   const supportsSaveFilePicker =
     typeof window !== "undefined" && typeof window.showSaveFilePicker === "function";
@@ -50,13 +63,15 @@ export default function Portal() {
     typeof window !== "undefined" && typeof window.showDirectoryPicker === "function";
   const auth = useAuth();
   const idToken = auth.isAuthenticated ? auth.user?.id_token : undefined;
-  const email =
-    auth.user?.profile?.email ||
-    auth.user?.profile?.preferred_username ||
-    auth.user?.profile?.name ||
-    auth.user?.profile?.["cognito:username"] ||
-    auth.user?.profile?.sub;
-  const groupsClaim = auth.user?.profile?.["cognito:groups"];
+  const profile = auth.user?.profile;
+  const tokenClaims = getIdTokenClaims(idToken);
+  const displayName =
+    tokenClaims?.["custom:name"] ||
+    tokenClaims?.name ||
+    profile?.["custom:name"] ||
+    profile?.name;
+  const email = tokenClaims?.email || profile?.email;
+  const groupsClaim = profile?.["cognito:groups"];
   const isAdmin = Array.isArray(groupsClaim)
     ? groupsClaim.includes("ADMIN")
     : groupsClaim === "ADMIN";
@@ -247,6 +262,7 @@ export default function Portal() {
         auth={{
           isAuthenticated: auth.isAuthenticated,
           isLoading: auth.isLoading,
+          displayName,
           email,
           onSignIn: () => auth.signinRedirect(),
           onSignOut: () => cognitoSignOut(auth),
@@ -367,6 +383,7 @@ export default function Portal() {
         modules={modules}
         defaultModule={selectedName}
         idToken={idToken}
+        uploaderName={displayName}
         uploaderEmail={email}
         onUploaded={() => loadAll(true)}
       />

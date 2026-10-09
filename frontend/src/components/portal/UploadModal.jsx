@@ -29,7 +29,7 @@ const suggestVersion = (latest) => {
 
 const sanitizeSegment = (s) => s.trim().replace(/[/\\]/g, "").replace(/\s+/g, "-");
 
-export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToken, uploaderEmail, onUploaded }) => {
+export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToken, uploaderName, uploaderEmail, onUploaded }) => {
   const [module, setModule] = useState(defaultModule || "");
   const [newModuleMode, setNewModuleMode] = useState(false);
   const [version, setVersion] = useState("1.0.0");
@@ -135,11 +135,16 @@ export const UploadModal = ({ open, onOpenChange, modules, defaultModule, idToke
     setBusy(true);
     const queue = [...items];
     if (!hasReadmeFile && summary.trim()) {
-      const safeEmail = (uploaderEmail || "Unknown user")
+      const safeName = (uploaderName || "Unknown user")
         .replace(/[\r\n]+/g, " ")
-        .replace(/\*/g, "\\*")
-        .replace(/_/g, "\\_");
-      const metadata = `**Uploaded by:** ${safeEmail}  \n**Uploaded at:** ${new Date().toISOString()}\n\n`;
+        .replace(/([\\`*_[\]<>])/g, "\\$1");
+      const safeEmail = uploaderEmail
+        ?.replace(/[\r\n]+/g, " ")
+        .replace(/([\\`*_[\]<>])/g, "\\$1");
+      const uploader = safeEmail
+        ? `${safeName} ([${safeEmail}](mailto:${encodeURIComponent(uploaderEmail)}))`
+        : safeName;
+      const metadata = `**Uploaded by:** ${uploader}  \n**Uploaded at:** ${new Date().toISOString()}\n\n`;
       const readme = new File([`${metadata}**Changes:**\n\n${summary.trim()}\n`], "README.md", { type: "text/markdown" });
       queue.push({ id: "readme", file: readme, progress: 0, status: "pending" });
     }

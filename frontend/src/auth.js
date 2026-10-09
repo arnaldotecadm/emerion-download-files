@@ -11,7 +11,7 @@ export const cognitoAuthConfig = {
   redirect_uri: `${origin}/`,
   post_logout_redirect_uri: `${origin}/`,
   response_type: "code",
-  scope: "email openid phone",
+  scope: "openid email phone profile",
   automaticSilentRenew: true,
   userStore: new WebStorageStateStore({ store: window.localStorage }),
   onSigninCallback: () => {

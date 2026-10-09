@@ -17,10 +17,10 @@ export const Header = ({ status, onRefresh, refreshing, auth }) => {
           </div>
           <div className="leading-tight">
             <div className="font-mono text-sm sm:text-base font-bold tracking-tight text-slate-50">
-              EMERION<span className="text-primary"> // </span>RELEASE VAULT
+              EMERION WEB<span className="text-primary"> // </span>RELEASE VAULT
             </div>
             <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              S3 Artifact Distribution
+              Vertice LTDA - Artifact Distribution for Emerion
             </div>
           </div>
         </div>
@@ -64,7 +64,7 @@ export const Header = ({ status, onRefresh, refreshing, auth }) => {
           {auth?.isAuthenticated ? (
             <div className="flex items-center gap-2">
               <span data-testid="auth-user-email" className="hidden font-mono text-[11px] text-slate-300 sm:inline">
-                {auth.email}
+                {auth.displayName || auth.email}
               </span>
               <Button
                 data-testid="sign-out-button"
