@@ -33,7 +33,21 @@ const triggerBrowserDownload = (url) => {
   document.body.removeChild(a);
 };
 
+const saveUrlToHandle = async (url, fileHandle) => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Download failed with status ${response.status}`);
+  const writable = await fileHandle.createWritable();
+  await writable.write(await response.blob());
+  await writable.close();
+};
+
+const isPickerCancelled = (error) => error?.name === "AbortError";
+
 export default function Portal() {
+  const supportsSaveFilePicker =
+    typeof window !== "undefined" && typeof window.showSaveFilePicker === "function";
+  const supportsDirectoryPicker =
+    typeof window !== "undefined" && typeof window.showDirectoryPicker === "function";
   const auth = useAuth();
   const idToken = auth.isAuthenticated ? auth.user?.id_token : undefined;
   const email =
@@ -138,13 +152,22 @@ export default function Portal() {
   const download = async (file) => {
     setDownloadingKey(file.key);
     try {
+      const fileHandlePromise = supportsSaveFilePicker
+        ? window.showSaveFilePicker({ suggestedName: file.name })
+        : null;
+      const fileHandle = fileHandlePromise ? await fileHandlePromise : null;
       const link = await getDownloadUrl(file.key, idToken);
+      if (fileHandle) {
+        await saveUrlToHandle(link.url, fileHandle);
+        toast.success(`Saved ${file.name}`);
+        return;
+      }
       triggerBrowserDownload(link.url);
       setModalLink(link);
       setModalOpen(true);
       toast.success(`Download link generated for ${file.name}`);
-    } catch {
-      toast.error(`Could not generate link for ${file.name}`);
+    } catch (error) {
+      if (!isPickerCancelled(error)) toast.error(`Could not download ${file.name}`);
     } finally {
       setDownloadingKey(null);
     }
@@ -154,6 +177,27 @@ export default function Portal() {
     if (!detail?.files?.length) return;
     setDownloadingAll(true);
     try {
+      const directoryHandlePromise = supportsDirectoryPicker
+        ? window.showDirectoryPicker({ mode: "readwrite" })
+        : null;
+      const directoryHandle = directoryHandlePromise ? await directoryHandlePromise : null;
+      if (directoryHandle) {
+        let savedCount = 0;
+        const failedFiles = [];
+        for (const file of detail.files) {
+          try {
+            const link = await getDownloadUrl(file.key, idToken);
+            const fileHandle = await directoryHandle.getFileHandle(file.name, { create: true });
+            await saveUrlToHandle(link.url, fileHandle);
+            savedCount += 1;
+          } catch {
+            failedFiles.push(file.name);
+          }
+        }
+        if (savedCount > 0) toast.success(`Saved ${savedCount} artifact(s) to the selected folder`);
+        if (failedFiles.length > 0) toast.error(`Could not save: ${failedFiles.join(", ")}`);
+        return;
+      }
       for (const file of detail.files) {
         try {
           const link = await getDownloadUrl(file.key, idToken);
@@ -164,6 +208,8 @@ export default function Portal() {
         }
       }
       toast.success(`Started download of ${detail.files.length} artifacts`);
+    } catch (error) {
+      if (!isPickerCancelled(error)) toast.error("Could not start downloads");
     } finally {
       setDownloadingAll(false);
     }
@@ -289,6 +335,7 @@ export default function Portal() {
                     onVersionChange={changeVersion}
                     onDownloadAll={downloadAll}
                     downloadingAll={downloadingAll}
+                    canChooseDownloadFolder={supportsDirectoryPicker}
                     isAdmin={isAdmin && auth.isAuthenticated}
                     onUpload={() => setUploadOpen(true)}
                     onDeleteVersion={() => setDeleteTarget({ type: "version" })}
@@ -301,6 +348,7 @@ export default function Portal() {
                     setSearch={setSearch}
                     onDownload={download}
                     downloadingKey={downloadingKey}
+                    canChooseDownloadLocation={supportsSaveFilePicker}
                     isAdmin={isAdmin && auth.isAuthenticated}
                     onDelete={(file) => setDeleteTarget({ type: "file", file })}
                     deletingKey={deleting && deleteTarget?.type === "file" ? deleteTarget.file.key : null}

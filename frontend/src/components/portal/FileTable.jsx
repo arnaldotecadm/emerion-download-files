@@ -55,6 +55,7 @@ export const FileTable = ({
   setSearch,
   onDownload,
   downloadingKey,
+  canChooseDownloadLocation,
   isAdmin,
   onDelete,
   deletingKey,
@@ -160,6 +161,8 @@ export const FileTable = ({
                       data-testid={`download-file-button-${f.name}`}
                       onClick={() => onDownload(f)}
                       disabled={busy}
+                      title={canChooseDownloadLocation ? "Choose where to save this file" : "Download file"}
+                      aria-label={`${canChooseDownloadLocation ? "Choose where to save" : "Download"} ${f.name}`}
                       size="sm"
                       variant="outline"
                       className="gap-1.5 border-primary/30 bg-primary/10 font-mono text-[11px] text-primary hover:bg-primary/20 active:scale-[0.98]"

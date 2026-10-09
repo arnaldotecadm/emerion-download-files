@@ -26,7 +26,7 @@ const Stat = ({ icon: Icon, label, value, testId }) => (
   </div>
 );
 
-export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDownloadAll, downloadingAll, isAdmin, onUpload, onDeleteVersion }) => {
+export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDownloadAll, downloadingAll, canChooseDownloadFolder, isAdmin, onUpload, onDeleteVersion }) => {
   if (!module) return null;
   const hasFiles = module.file_count > 0;
   return (
@@ -107,7 +107,7 @@ export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDown
                   className="gap-2 bg-primary font-mono text-xs font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98]"
                 >
                   <DownloadCloud className="h-4 w-4" />
-                  {downloadingAll ? "PREPARING…" : "DOWNLOAD ALL"}
+                  {downloadingAll ? "PREPARING…" : canChooseDownloadFolder ? "CHOOSE FOLDER & DOWNLOAD" : "DOWNLOAD ALL"}
                 </Button>
                 {selectedVersion && hasFiles && (
                   <Button
@@ -130,7 +130,7 @@ export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDown
                 className="gap-2 bg-primary font-mono text-xs font-semibold text-primary-foreground hover:bg-primary/90 active:scale-[0.98]"
               >
                 <DownloadCloud className="h-4 w-4" />
-                {downloadingAll ? "PREPARING…" : "DOWNLOAD ALL"}
+                {downloadingAll ? "PREPARING…" : canChooseDownloadFolder ? "CHOOSE FOLDER & DOWNLOAD" : "DOWNLOAD ALL"}
               </Button>
             )}
           </div>
