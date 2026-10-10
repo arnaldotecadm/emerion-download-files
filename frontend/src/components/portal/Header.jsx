@@ -17,7 +17,7 @@ export const Header = ({ status, onRefresh, refreshing, auth }) => {
           </div>
           <div className="leading-tight">
             <div className="font-mono text-sm sm:text-base font-bold tracking-tight text-slate-50">
-              EMERION WEB<span className="text-primary"> // </span>RELEASE VAULT
+              EMERION WEB<span className="text-primary"> // </span>RELEASES
             </div>
             <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
               Vertice LTDA - Artifact Distribution for Emerion
