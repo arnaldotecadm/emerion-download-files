@@ -29,6 +29,8 @@ const Stat = ({ icon: Icon, label, value, testId }) => (
 export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDownloadAll, downloadingAll, canChooseDownloadFolder, isAdmin, onUpload, onDeleteVersion }) => {
   if (!module) return null;
   const hasFiles = module.file_count > 0;
+  const isLatestVersion =
+    Boolean(module.latest_version) && selectedVersion === module.latest_version;
   return (
     <motion.div
       data-testid="latest-release-banner"
@@ -41,10 +43,12 @@ export const ReleaseBanner = ({ module, selectedVersion, onVersionChange, onDown
       <div className="relative flex flex-col gap-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-primary">
-              <span className="live-dot h-1.5 w-1.5 rounded-full bg-primary" />
-              Latest Release
-            </div>
+            {isLatestVersion && (
+              <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-primary">
+                <span className="live-dot h-1.5 w-1.5 rounded-full bg-primary" />
+                Latest Release
+              </div>
+            )}
             <h1
               data-testid="latest-folder-name"
               className="mt-1 font-mono text-3xl sm:text-4xl font-bold tracking-tight text-slate-50"

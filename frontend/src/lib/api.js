@@ -122,9 +122,8 @@ export const getModule = async (module, version, idToken) => {
   const modulePrefix = `${BASE_PREFIX}${module}/`;
   const info = await buildModule(s3, modulePrefix);
   if (version && info.versions.includes(version)) {
-    info.latest_version = version;
-    info.latest_prefix = `${modulePrefix}${version}/`;
-    info.files = await filesFor(s3, info.latest_prefix);
+    const versionPrefix = `${modulePrefix}${version}/`;
+    info.files = await filesFor(s3, versionPrefix);
     info.file_count = info.files.length;
     info.total_size = info.files.reduce((s, f) => s + (f.size || 0), 0);
   }
